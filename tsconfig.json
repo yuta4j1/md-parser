@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "allowJs": true,
+        "alwaysStrict": true,
+        "esModuleInterop": true,
+        "rootDir": ".",
+        "outDir": "dist",
+        "declaration": true,
+        "lib": [
+            "ESNext"
+        ],
+        "module": "esnext",
+        "moduleResolution": "node",
+        "noFallthroughCasesInSwitch": true,
+        "target": "ESNext",
+    },
+    "exclude": [
+        "node_modules",
+        "__tests__",
+        "dist",
+        "jest.*.js",
+        "esbuild.*.js"
+    ],
+    "include": [
+        "**/*",
+    ]
+}
