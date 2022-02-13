@@ -3,12 +3,18 @@ import { parse } from './lib/parser'
 
 function main() {
   const argText = `## testです
-hogehoge **nikoniko** fuga \`test\` b
+hogehoge **test用マークダウン**  
+fuga \`test\` bbb
+- test
+- list
+- aaa
 
 `
   const mdTokens = tokenizer(argText)
   const result = parse(mdTokens)
-  console.log('parse result: ', result)
+  console.log('')
+  console.log('parse result ↓')
+  console.log(result)
 }
 
 main()
