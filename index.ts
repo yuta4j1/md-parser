@@ -1,11 +1,14 @@
 import { tokenizer } from './lib/lexer'
+import { parse } from './lib/parser'
 
 function main() {
-  const markdownText = `## testです
+  const argText = `## testです
 hogehoge **nikoniko** fuga \`test\` b
 
 `
-  tokenizer(markdownText)
+  const mdTokens = tokenizer(argText)
+  const result = parse(mdTokens)
+  console.log('parse result: ', result)
 }
 
 main()

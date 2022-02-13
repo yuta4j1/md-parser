@@ -52,7 +52,7 @@ const EMPHASIS_REGEXP = /\*\*(.+?)\*\*/g
 const CANCEL_REGEXP = /~~(.+?)~~/g
 const CODE_REGEXP = /`(.+?)`/g
 
-const rowTokenizer = (rowText: string) => {
+const rowTokenizer = (rowText: string): Token[] => {
   const emMatches = matchRegexp(rowText, {
     mdType: 'emphasis',
     regexp: EMPHASIS_REGEXP,
@@ -72,8 +72,7 @@ const rowTokenizer = (rowText: string) => {
   })
   console.log('allMatches', allMatches)
   const tokens = tokenize(rowText, allMatches)
-  console.log('rowTokens!', tokens)
-  return emMatches
+  return tokens
 }
 
 export const tokenizer = (srcText: string) => {
@@ -81,18 +80,8 @@ export const tokenizer = (srcText: string) => {
   const processingLines = srcText.split('\n')
   for (const l of processingLines) {
     const t = rowTokenizer(l)
-    console.log('data', t)
-    if (t.length === 0) {
-      tokens.push({
-        type: 'text',
-        content: l,
-      })
-    } else {
-      tokens.push({
-        type: 'emphasis',
-        content: '',
-      })
-    }
+    tokens = [...tokens].concat(t)
   }
   console.log('tokenizer call', processingLines)
+  return tokens
 }
