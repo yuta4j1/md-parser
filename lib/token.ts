@@ -14,6 +14,7 @@ export type MdType =
 export type MdToken = {
   type: MdType
   content: string
+  indent?: number
 }
 
 export type HtmlTagType =

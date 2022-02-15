@@ -1,5 +1,5 @@
 import type { MdType, MdToken, HtmlElementToken, HtmlTagType } from './token'
-import { matchRegexp } from './util/matcher'
+import { matchRegexp, listMatchRegexp } from './util/matcher'
 import type { Match } from './types/match'
 
 const typeToHtmlTag = (mdtype: MdType): HtmlTagType => {
@@ -56,10 +56,18 @@ const tokenize = (text: string, matches: Match[]): MdToken[] => {
         })
         cursor = match.lastIdx
       } else if (cursor === match.idx) {
-        tokens.push({
-          type: match.mdType,
-          content: match.contentText,
-        })
+        if (match.mdType === 'list') {
+          tokens.push({
+            type: match.mdType,
+            content: match.contentText,
+            indent: match.indent,
+          })
+        } else {
+          tokens.push({
+            type: match.mdType,
+            content: match.contentText,
+          })
+        }
         cursor = match.lastIdx
       }
     } else {
@@ -79,7 +87,7 @@ const tokenize = (text: string, matches: Match[]): MdToken[] => {
 // list text table
 
 const requireNextRead = (type: MdType): boolean => {
-  return type === 'text'
+  return type === 'text' || type === 'list'
 }
 
 const isInlineElment = (type: MdType): boolean => {
@@ -141,12 +149,69 @@ const textTokenizer = (
       break
     }
   }
-  console.log('spanTokens', spanTokens)
+  // console.log('spanTokens', spanTokens)
   return {
     token: {
       type: 'p',
       content: '',
       innerTokens: spanTokens,
+    },
+    cursorIdx: idx,
+  }
+}
+
+const listTokenizer = (
+  currIdx: number,
+  tokens: MdToken[],
+  currIndent: number = 0
+): { token: HtmlElementToken; cursorIdx: number } => {
+  let liTokens: HtmlElementToken[] = []
+  let idx = currIdx
+  let thisIndent = currIndent
+
+  while (idx < tokens.length) {
+    const token = tokens[idx]
+    if (token.type === 'list') {
+      const tokenIndent = token.indent
+      if (thisIndent === tokenIndent) {
+        liTokens.push({
+          type: 'li',
+          content: token.content,
+        })
+        idx++
+      } else {
+        const indentDiff = tokenIndent - thisIndent
+        console.log('indentDiff', indentDiff)
+        if (indentDiff >= 2) {
+          const retTokens = listTokenizer(idx, tokens, thisIndent + 2)
+          idx = retTokens.cursorIdx
+          liTokens.push({
+            type: 'li',
+            content: '',
+            innerTokens: [retTokens.token],
+          })
+        } else if (indentDiff < 0) {
+          idx += 1
+          return {
+            token: {
+              type: 'ul',
+              content: '',
+              innerTokens: liTokens,
+            },
+            cursorIdx: idx,
+          }
+        }
+      }
+    } else {
+      break
+    }
+  }
+
+  return {
+    token: {
+      type: 'ul',
+      content: '',
+      innerTokens: liTokens,
     },
     cursorIdx: idx,
   }
@@ -158,17 +223,24 @@ const mergeTokensByBlock = (tokens: MdToken[]): HtmlElementToken[] => {
   console.log('mergeTokensByBlock: ', tokens)
   let idx = 0
   while (idx < tokens.length) {
-    if (requireNextRead(tokens[idx].type)) {
-      if (tokens[idx].type === 'text') {
+    const token = tokens[idx]
+    if (requireNextRead(token.type)) {
+      if (token.type === 'text') {
         const t = textTokenizer(idx, tokens)
+        console.log('t', t.token.innerTokens)
+        retTokens.push(t.token)
+        idx = t.cursorIdx
+      }
+      if (token.type === 'list') {
+        const t = listTokenizer(idx, tokens)
         console.log('t', t.token.innerTokens)
         retTokens.push(t.token)
         idx = t.cursorIdx
       }
     } else {
       retTokens.push({
-        type: typeToHtmlTag(tokens[idx].type),
-        content: tokens[idx].content,
+        type: typeToHtmlTag(token.type),
+        content: token.content,
       })
       idx++
     }
@@ -182,6 +254,8 @@ const H3_REGEXP = /^### (.+)$/g
 const H4_REGEXP = /^#### (.+)$/g
 const H5_REGEXP = /^##### (.+)$/g
 const H6_REGEXP = /^###### (.+)$/g
+
+const LIST_REGEXP = /^( *)([-|\*|\+] (.+))$/g
 
 const EMPHASIS_REGEXP = /\*\*(.+?)\*\*/g
 const CANCEL_REGEXP = /~~(.+?)~~/g
@@ -213,6 +287,11 @@ const rowTokenizer = (rowText: string): MdToken[] => {
     regexp: H6_REGEXP,
   })
 
+  const listMatches = listMatchRegexp(rowText, {
+    mdType: 'list',
+    regexp: LIST_REGEXP,
+  })
+
   const emMatches = matchRegexp(rowText, {
     mdType: 'emphasis',
     regexp: EMPHASIS_REGEXP,
@@ -232,6 +311,7 @@ const rowTokenizer = (rowText: string): MdToken[] => {
     ...h4Matches,
     ...h5Matches,
     ...h6Matches,
+    ...listMatches,
     ...emMatches,
     ...cancelMatches,
     ...codeMatches,
@@ -252,7 +332,7 @@ export const tokenizer = (srcText: string) => {
     const t = rowTokenizer(l)
     tokens = [...tokens].concat(t)
   }
-  console.log('tokenizer call', processingLines)
+  // console.log('tokenizer call', processingLines)
   // 行ごとのtokenizeが完了したら、ブロックごとにトークンをまとめあげるtokenizeを行う。
   return mergeTokensByBlock(tokens)
 }

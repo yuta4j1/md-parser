@@ -5,4 +5,5 @@ export type Match = {
   idx: number
   lastIdx: number
   mdType: MdType
+  indent?: number
 }

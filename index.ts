@@ -6,6 +6,8 @@ function main() {
 hogehoge **test用マークダウン**  
 fuga \`test\` bbb
 - test
+  - hoge
+  - fuga
 - list
 - aaa
 
