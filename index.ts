@@ -1,5 +1,6 @@
 import { tokenizer } from './lib/lexer'
 import { parse } from './lib/parser'
+import { htmlGenerator } from './lib/generator'
 
 function main() {
   const argText = `## testです
@@ -13,10 +14,11 @@ fuga \`test\` bbb
 
 `
   const mdTokens = tokenizer(argText)
-  const result = parse(mdTokens)
+  const elementTokens = parse(mdTokens)
+  const resultHtml = htmlGenerator(elementTokens)
   console.log('')
   console.log('parse result ↓')
-  console.log(result)
+  console.log(resultHtml)
 }
 
 main()

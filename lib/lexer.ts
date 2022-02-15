@@ -2,33 +2,6 @@ import type { MdType, MdToken, HtmlElementToken, HtmlTagType } from './token'
 import { matchRegexp, listMatchRegexp } from './util/matcher'
 import type { Match } from './types/match'
 
-const typeToHtmlTag = (mdtype: MdType): HtmlTagType => {
-  switch (mdtype) {
-    case 'h1':
-      return 'h1'
-    case 'h2':
-      return 'h2'
-    case 'h3':
-      return 'h3'
-    case 'h4':
-      return 'h4'
-    case 'h5':
-      return 'h5'
-    case 'h6':
-      return 'h6'
-    case 'emphasis':
-      return 'em'
-    case 'cancel':
-      return 's'
-    case 'code':
-      return 'code'
-    case 'text':
-      return 'none'
-    default:
-      return 'none'
-  }
-}
-
 const tokenize = (text: string, matches: Match[]): MdToken[] => {
   let tokens: MdToken[] = []
   let matchDatas = [...matches]
@@ -81,171 +54,6 @@ const tokenize = (text: string, matches: Match[]): MdToken[] => {
   }
 
   return tokens
-}
-
-// 先読みが必要になるリスト
-// list text table
-
-const requireNextRead = (type: MdType): boolean => {
-  return type === 'text' || type === 'list'
-}
-
-const isInlineElment = (type: MdType): boolean => {
-  return (
-    type === 'text' ||
-    type === 'emphasis' ||
-    type === 'cancel' ||
-    type === 'code'
-  )
-}
-
-const textTokenizer = (
-  currIdx: number,
-  tokens: MdToken[]
-): { token: HtmlElementToken; cursorIdx: number } => {
-  let spanTokens: HtmlElementToken[] = []
-  let textTokens: HtmlElementToken[] = []
-  let idx = currIdx
-  while (idx < tokens.length) {
-    const t = tokens[idx]
-    if (isInlineElment(t.type)) {
-      const textStr = t.content
-
-      if (textStr === '') {
-        spanTokens.push({
-          type: 'span',
-          content: '',
-          innerTokens: textTokens,
-        })
-        idx++
-        break
-      } else {
-        if (textStr.length >= 2) {
-          const lastTwoChars = textStr.slice(-2)
-
-          if (lastTwoChars === '  ') {
-            spanTokens.push({
-              type: 'span',
-              content: '',
-              innerTokens: textTokens,
-            })
-            textTokens = []
-            idx++
-            continue
-          }
-        }
-        textTokens.push({
-          type: typeToHtmlTag(tokens[idx].type),
-          content: tokens[idx].content,
-        })
-        idx = idx + 1
-      }
-    } else {
-      spanTokens.push({
-        type: 'span',
-        content: '',
-        innerTokens: textTokens,
-      })
-      break
-    }
-  }
-  // console.log('spanTokens', spanTokens)
-  return {
-    token: {
-      type: 'p',
-      content: '',
-      innerTokens: spanTokens,
-    },
-    cursorIdx: idx,
-  }
-}
-
-const listTokenizer = (
-  currIdx: number,
-  tokens: MdToken[],
-  currIndent: number = 0
-): { token: HtmlElementToken; cursorIdx: number } => {
-  let liTokens: HtmlElementToken[] = []
-  let idx = currIdx
-  let thisIndent = currIndent
-
-  while (idx < tokens.length) {
-    const token = tokens[idx]
-    if (token.type === 'list') {
-      const tokenIndent = token.indent
-      if (thisIndent === tokenIndent) {
-        liTokens.push({
-          type: 'li',
-          content: token.content,
-        })
-        idx++
-      } else {
-        const indentDiff = tokenIndent - thisIndent
-        console.log('indentDiff', indentDiff)
-        if (indentDiff >= 2) {
-          const retTokens = listTokenizer(idx, tokens, thisIndent + 2)
-          idx = retTokens.cursorIdx
-          liTokens.push({
-            type: 'li',
-            content: '',
-            innerTokens: [retTokens.token],
-          })
-        } else if (indentDiff < 0) {
-          idx += 1
-          return {
-            token: {
-              type: 'ul',
-              content: '',
-              innerTokens: liTokens,
-            },
-            cursorIdx: idx,
-          }
-        }
-      }
-    } else {
-      break
-    }
-  }
-
-  return {
-    token: {
-      type: 'ul',
-      content: '',
-      innerTokens: liTokens,
-    },
-    cursorIdx: idx,
-  }
-}
-
-// ブロック要素毎にトークンをまとめる
-const mergeTokensByBlock = (tokens: MdToken[]): HtmlElementToken[] => {
-  let retTokens: HtmlElementToken[] = []
-  console.log('mergeTokensByBlock: ', tokens)
-  let idx = 0
-  while (idx < tokens.length) {
-    const token = tokens[idx]
-    if (requireNextRead(token.type)) {
-      if (token.type === 'text') {
-        const t = textTokenizer(idx, tokens)
-        console.log('t', t.token.innerTokens)
-        retTokens.push(t.token)
-        idx = t.cursorIdx
-      }
-      if (token.type === 'list') {
-        const t = listTokenizer(idx, tokens)
-        console.log('t', t.token.innerTokens)
-        retTokens.push(t.token)
-        idx = t.cursorIdx
-      }
-    } else {
-      retTokens.push({
-        type: typeToHtmlTag(token.type),
-        content: token.content,
-      })
-      idx++
-    }
-  }
-  return retTokens
 }
 
 const H1_REGEXP = /^# (.+)$/g
@@ -325,7 +133,8 @@ const rowTokenizer = (rowText: string): MdToken[] => {
   return tokens
 }
 
-export const tokenizer = (srcText: string) => {
+// 字句解析
+export const tokenizer = (srcText: string): MdToken[] => {
   let tokens: MdToken[] = []
   const processingLines = srcText.split('\n')
   for (const l of processingLines) {
@@ -333,6 +142,5 @@ export const tokenizer = (srcText: string) => {
     tokens = [...tokens].concat(t)
   }
   // console.log('tokenizer call', processingLines)
-  // 行ごとのtokenizeが完了したら、ブロックごとにトークンをまとめあげるtokenizeを行う。
-  return mergeTokensByBlock(tokens)
+  return tokens
 }
