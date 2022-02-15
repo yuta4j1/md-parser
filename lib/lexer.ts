@@ -1,9 +1,36 @@
-import type { MdType, Token } from './token'
+import type { MdType, MdToken, HtmlElementToken, HtmlTagType } from './token'
 import { matchRegexp } from './util/matcher'
 import type { Match } from './types/match'
 
-const tokenize = (text: string, matches: Match[]): Token[] => {
-  let tokens: Token[] = []
+const typeToHtmlTag = (mdtype: MdType): HtmlTagType => {
+  switch (mdtype) {
+    case 'h1':
+      return 'h1'
+    case 'h2':
+      return 'h2'
+    case 'h3':
+      return 'h3'
+    case 'h4':
+      return 'h4'
+    case 'h5':
+      return 'h5'
+    case 'h6':
+      return 'h6'
+    case 'emphasis':
+      return 'em'
+    case 'cancel':
+      return 's'
+    case 'code':
+      return 'code'
+    case 'text':
+      return 'none'
+    default:
+      return 'none'
+  }
+}
+
+const tokenize = (text: string, matches: Match[]): MdToken[] => {
+  let tokens: MdToken[] = []
   let matchDatas = [...matches]
   if (matches.length === 0) {
     tokens.push({
@@ -66,10 +93,10 @@ const isInlineElment = (type: MdType): boolean => {
 
 const textTokenizer = (
   currIdx: number,
-  tokens: Token[]
-): { token: Token; cursorIdx: number } => {
-  let spanTokens: Token[] = []
-  let textTokens: Token[] = []
+  tokens: MdToken[]
+): { token: HtmlElementToken; cursorIdx: number } => {
+  let spanTokens: HtmlElementToken[] = []
+  let textTokens: HtmlElementToken[] = []
   let idx = currIdx
   while (idx < tokens.length) {
     const t = tokens[idx]
@@ -80,7 +107,7 @@ const textTokenizer = (
         spanTokens.push({
           type: 'span',
           content: '',
-          childToken: textTokens,
+          innerTokens: textTokens,
         })
         idx++
         break
@@ -92,21 +119,24 @@ const textTokenizer = (
             spanTokens.push({
               type: 'span',
               content: '',
-              childToken: textTokens,
+              innerTokens: textTokens,
             })
             textTokens = []
             idx++
             continue
           }
         }
-        textTokens.push(tokens[idx])
+        textTokens.push({
+          type: typeToHtmlTag(tokens[idx].type),
+          content: tokens[idx].content,
+        })
         idx = idx + 1
       }
     } else {
       spanTokens.push({
         type: 'span',
         content: '',
-        childToken: textTokens,
+        innerTokens: textTokens,
       })
       break
     }
@@ -116,27 +146,30 @@ const textTokenizer = (
     token: {
       type: 'p',
       content: '',
-      childToken: spanTokens,
+      innerTokens: spanTokens,
     },
     cursorIdx: idx,
   }
 }
 
 // ブロック要素毎にトークンをまとめる
-const mergeTokensByBlock = (tokens: Token[]): Token[] => {
-  let retTokens: Token[] = []
+const mergeTokensByBlock = (tokens: MdToken[]): HtmlElementToken[] => {
+  let retTokens: HtmlElementToken[] = []
   console.log('mergeTokensByBlock: ', tokens)
   let idx = 0
   while (idx < tokens.length) {
     if (requireNextRead(tokens[idx].type)) {
       if (tokens[idx].type === 'text') {
         const t = textTokenizer(idx, tokens)
-        console.log('t', t.token.childToken)
+        console.log('t', t.token.innerTokens)
         retTokens.push(t.token)
         idx = t.cursorIdx
       }
     } else {
-      retTokens.push(tokens[idx])
+      retTokens.push({
+        type: typeToHtmlTag(tokens[idx].type),
+        content: tokens[idx].content,
+      })
       idx++
     }
   }
@@ -154,7 +187,7 @@ const EMPHASIS_REGEXP = /\*\*(.+?)\*\*/g
 const CANCEL_REGEXP = /~~(.+?)~~/g
 const CODE_REGEXP = /`(.+?)`/g
 
-const rowTokenizer = (rowText: string): Token[] => {
+const rowTokenizer = (rowText: string): MdToken[] => {
   const h1Matches = matchRegexp(rowText, {
     mdType: 'h1',
     regexp: H1_REGEXP,
@@ -213,7 +246,7 @@ const rowTokenizer = (rowText: string): Token[] => {
 }
 
 export const tokenizer = (srcText: string) => {
-  let tokens: Token[] = []
+  let tokens: MdToken[] = []
   const processingLines = srcText.split('\n')
   for (const l of processingLines) {
     const t = rowTokenizer(l)

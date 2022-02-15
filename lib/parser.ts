@@ -1,44 +1,15 @@
-import type { Token, MdType } from './token'
+import type { HtmlElementToken } from './token'
 
-const typeToHtmlTag = (mdtype: MdType): string => {
-  switch (mdtype) {
-    case 'h1':
-      return 'h1'
-    case 'h2':
-      return 'h2'
-    case 'h3':
-      return 'h3'
-    case 'h4':
-      return 'h4'
-    case 'h5':
-      return 'h5'
-    case 'h6':
-      return 'h6'
-    case 'p':
-      return 'p'
-    case 'emphasis':
-      return 'em'
-    case 'cancel':
-      return 's'
-    case 'code':
-      return 'code'
-    case 'span':
-      return 'span'
-    default:
-      return ''
-  }
-}
-
-export const parse = (tokens: Token[]) => {
+export const parse = (tokens: HtmlElementToken[]) => {
   let htmlText = ''
   for (const token of tokens) {
-    const htmlTag = typeToHtmlTag(token.type)
+    const htmlTag = token.type
 
-    if (token.childToken && token.childToken.length > 0) {
-      const innerHtmlText = parse(token.childToken)
+    if (token.innerTokens && token.innerTokens.length > 0) {
+      const innerHtmlText = parse(token.innerTokens)
       htmlText += `<${htmlTag}>${innerHtmlText}</${htmlTag}>\n`
     } else {
-      if (token.type === 'text' && htmlTag === '') {
+      if (token.type === 'none') {
         htmlText += token.content
       } else {
         htmlText += `<${htmlTag}>${token.content}</${htmlTag}>\n`
