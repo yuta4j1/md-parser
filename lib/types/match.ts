@@ -1,4 +1,5 @@
 import type { MdType } from '../token'
+
 export type Match = {
   matchedText: string
   contentText: string
