@@ -7,7 +7,11 @@ export const htmlGenerator = (tokens: HtmlElementToken[]): string => {
 
     if (token.innerTokens && token.innerTokens.length > 0) {
       const innerHtmlText = htmlGenerator(token.innerTokens)
-      htmlText += `<${htmlTag}>${innerHtmlText}</${htmlTag}>\n`
+      if (token.content === '') {
+        htmlText += `<${htmlTag}>${innerHtmlText}</${htmlTag}>\n`
+      } else {
+        htmlText += `<${htmlTag}>${token.content}${innerHtmlText}</${htmlTag}>\n`
+      }
     } else {
       if (token.type === 'none') {
         htmlText += token.content

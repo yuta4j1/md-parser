@@ -126,11 +126,7 @@ const listTokenizer = (
         if (indentDiff >= 2) {
           const retTokens = listTokenizer(idx, tokens, thisIndent + 2)
           idx = retTokens.cursorIdx
-          liTokens.push({
-            type: 'li',
-            content: '',
-            innerTokens: [retTokens.token],
-          })
+          liTokens[liTokens.length - 1].innerTokens = [retTokens.token]
         } else if (indentDiff < 0) {
           idx += 1
           return {
